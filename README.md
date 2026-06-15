@@ -215,3 +215,6 @@ mini-foundry-ontology-runtime/
 ├── .env.example
 └── README.md
 ```
+
+
+API 文档可通过 /redoc 查看；如 /docs 因 Swagger UI CDN 资源加载异常出现白屏，可使用 /redoc 或 /openapi.json。
