@@ -1,0 +1,42 @@
+[
+  {
+    "id": "PO-001",
+    "supplier_id": "supplier_001",
+    "amount": 50000.00,
+    "currency": "CNY",
+    "description": "办公设备采购 — 笔记本电脑及显示器",
+    "status": "pending_review"
+  },
+  {
+    "id": "PO-002",
+    "supplier_id": "supplier_002",
+    "amount": 150000.00,
+    "currency": "CNY",
+    "description": "服务器设备采购 — 机架式服务器及网络交换机",
+    "status": "pending_review"
+  },
+  {
+    "id": "PO-003",
+    "supplier_id": "supplier_003",
+    "amount": 80000.00,
+    "currency": "CNY",
+    "description": "原材料采购 — 特种钢材",
+    "status": "pending_review"
+  },
+  {
+    "id": "PO-004",
+    "supplier_id": "supplier_004",
+    "amount": 30000.00,
+    "currency": "CNY",
+    "description": "办公用品采购 — 打印纸及耗材",
+    "status": "pending_review"
+  },
+  {
+    "id": "PO-005",
+    "supplier_id": "supplier_001",
+    "amount": 200000.00,
+    "currency": "CNY",
+    "description": "IT 基础设施升级 — 数据中心改造",
+    "status": "frozen"
+  }
+]

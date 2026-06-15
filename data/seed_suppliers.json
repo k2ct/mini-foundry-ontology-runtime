@@ -1,0 +1,26 @@
+[
+  {
+    "id": "supplier_001",
+    "name": "恒信办公设备有限公司",
+    "risk_level": "low",
+    "status": "active"
+  },
+  {
+    "id": "supplier_002",
+    "name": "云擎数据中心解决方案",
+    "risk_level": "medium",
+    "status": "active"
+  },
+  {
+    "id": "supplier_003",
+    "name": "鑫达原材料供应链",
+    "risk_level": "high",
+    "status": "blacklisted"
+  },
+  {
+    "id": "supplier_004",
+    "name": "快捷办公用品批发",
+    "risk_level": "medium",
+    "status": "active"
+  }
+]

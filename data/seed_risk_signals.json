@@ -1,0 +1,37 @@
+[
+  {
+    "id": "risk_001",
+    "order_id": "PO-001",
+    "signal_type": "low_amount",
+    "severity": "low",
+    "description": "订单金额在正常范围内，供应商信誉良好"
+  },
+  {
+    "id": "risk_002",
+    "order_id": "PO-002",
+    "signal_type": "high_amount",
+    "severity": "high",
+    "description": "订单金额 150000 元，超过 100000 元升级审批阈值"
+  },
+  {
+    "id": "risk_003",
+    "order_id": "PO-003",
+    "signal_type": "blacklisted_supplier",
+    "severity": "critical",
+    "description": "供应商 supplier_003 已被列入黑名单"
+  },
+  {
+    "id": "risk_004",
+    "order_id": "PO-004",
+    "signal_type": "missing_document",
+    "severity": "high",
+    "description": "供应商资质文件缺失，无法完成合规审查"
+  },
+  {
+    "id": "risk_005",
+    "order_id": "PO-005",
+    "signal_type": "critical",
+    "severity": "critical",
+    "description": "订单已被冻结，存在严重合规风险"
+  }
+]

@@ -1,0 +1,26 @@
+[
+  {
+    "id": "policy_001",
+    "title": "高金额订单升级审批规则",
+    "content": "金额超过 100000 元的采购订单需要升级审批，必须经部门总监和财务总监双签后方可继续执行。",
+    "policy_type": "amount_threshold"
+  },
+  {
+    "id": "policy_002",
+    "title": "黑名单供应商冻结规则",
+    "content": "黑名单供应商相关的采购订单必须立即冻结，暂停一切付款和执行流程，待合规部门出具书面意见后方可决定后续处理。",
+    "policy_type": "supplier_compliance"
+  },
+  {
+    "id": "policy_003",
+    "title": "资质文件缺失处理规则",
+    "content": "缺少资质文件的采购订单应予拒绝或要求供应商在 5 个工作日内补充材料。逾期未提供或材料不合规的，订单自动作废。",
+    "policy_type": "document_rule"
+  },
+  {
+    "id": "policy_004",
+    "title": "低风险订单批准规则",
+    "content": "低风险且材料完整的采购订单可以直接批准。标准审批流程为：采购经理一级审批，无需额外升级。",
+    "policy_type": "approval_rule"
+  }
+]

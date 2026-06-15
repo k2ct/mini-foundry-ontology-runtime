@@ -1,0 +1,38 @@
+# Conda environment
+.conda/
+
+# Legacy virtual environment (keep to prevent accidental commits of old envs)
+.venv/
+
+# Environment variables (contains secrets)
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Database files
+*.db
+
+# Test cache
+.pytest_cache/
+
+# Type checker cache
+.mypy_cache/
+
+# Linter cache
+.ruff_cache/
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Distribution
+dist/
+build/
+*.egg-info/
