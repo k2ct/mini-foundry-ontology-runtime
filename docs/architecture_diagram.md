@@ -47,27 +47,27 @@ graph TD
     (app/agent/analyzer.py)
     Read orders + risks + policies
     → Produce AgentRun (suggestion ONLY)"]
-    class AgentAnalyzer planned
+    class AgentAnalyzer done
 
     %% ── AgentRun ─────────────────────────────────────────────────────
     AgentRunRecord["AgentRun
     (Read-Only Suggestion)
     risk_level / suggested_action
     / reason / evidence_ids / confidence"]
-    class AgentRunRecord planned
+    class AgentRunRecord done
 
     %% ── Action Runtime ───────────────────────────────────────────────
     ActionRuntime["Action Runtime
     (app/actions/runtime.py)
     Validators → State Machine
     approve / reject / freeze / escalate"]
-    class ActionRuntime planned
+    class ActionRuntime done
 
     %% ── State Change ─────────────────────────────────────────────────
     StateChange["PurchaseOrder State Change
     pending_review
     → approved / rejected / escalated / frozen"]
-    class StateChange planned
+    class StateChange done
 
     %% ── Audit Log ────────────────────────────────────────────────────
     ActionAuditLog["ActionAuditLog
@@ -76,13 +76,13 @@ graph TD
     ★ actor ★ reason ★ evidence_ids
     ★ before_state ★ after_state
     ★ timestamp ★ success"]
-    class ActionAuditLog planned
+    class ActionAuditLog done
 
     %% ── Timeline Query ───────────────────────────────────────────────
     TimelineQuery["Timeline Query API
     GET /orders/{id}/timeline
     Full audit trace per order"]
-    class TimelineQuery planned
+    class TimelineQuery done
 
     %% ── Edges ────────────────────────────────────────────────────────
     Client --> FastAPI
@@ -105,9 +105,9 @@ graph TD
 
     %% ── Legend ───────────────────────────────────────────────────────
     subgraph Legend
-        L1["🟢 Phase 1 — Done"]:::done
+        L1["🟢 Phase 1 & 2 — Done"]:::done
         L2["🔵 Database / Storage"]:::storage
-        L3["⚪ Phase 2-5 — Planned"]:::planned
+        L3["⚪ Phase 3+ — Planned"]:::planned
         L4["🟠 External Service"]:::external
     end
 ```
@@ -126,7 +126,7 @@ Client ──GET──▶ FastAPI ──Query──▶ Ontology DB
          (SupplierRead / OrderDetail / RiskSignalRead / PolicyChunkRead)
 ```
 
-### Phase 2-5（规划中）
+### Phase 2（已实现）
 
 ```text
 1. Agent Analyzer 读取订单 + 风险信号 + 政策

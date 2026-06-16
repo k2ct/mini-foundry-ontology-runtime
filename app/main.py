@@ -10,7 +10,7 @@ from fastapi import FastAPI
 app = FastAPI(
     title="Mini Foundry Ontology Action Runtime",
     description="Enterprise procurement risk review — ontology + agent + action runtime",
-    version="0.1.0",
+    version="0.2.0",
 )
 
 
@@ -49,5 +49,25 @@ except ImportError:
 try:
     from app.api.policies import router as policies_router
     app.include_router(policies_router)
+except ImportError:
+    pass
+
+# ── Phase 2 routes ────────────────────────────────────────────────────────────
+
+try:
+    from app.api.agent_runs import router as agent_runs_router
+    app.include_router(agent_runs_router)
+except ImportError:
+    pass
+
+try:
+    from app.api.actions import router as actions_router
+    app.include_router(actions_router)
+except ImportError:
+    pass
+
+try:
+    from app.api.traces import router as traces_router
+    app.include_router(traces_router)
 except ImportError:
     pass

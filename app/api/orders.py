@@ -1,5 +1,5 @@
 """
-PurchaseOrder query API — list all orders or fetch one by ID with nested details.
+PurchaseOrder query API — list all orders, fetch detail, and query timelines.
 """
 
 from typing import List
@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.deps import get_db
 from app.ontology.models import PurchaseOrder
 from app.ontology.schemas import PurchaseOrderDetailRead, PurchaseOrderRead
+from app.audit.trace import build_timeline
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -40,3 +41,24 @@ def get_order(order_id: str, db: Session = Depends(get_db)):
     if order is None:
         raise HTTPException(status_code=404, detail=f"Order '{order_id}' not found")
     return order
+
+
+@router.get("/{order_id}/timeline")
+def get_order_timeline(order_id: str, db: Session = Depends(get_db)):
+    """Return the complete audit timeline for a purchase order.
+
+    The timeline includes:
+    - Order and supplier details
+    - All risk signals detected
+    - All referenced policies
+    - All agent analysis runs
+    - All action audit log entries (successful and failed)
+    - All approval tasks
+    - A unified chronological event timeline
+
+    Example: ``GET /orders/PO-002/timeline``
+    """
+    timeline = build_timeline(db, order_id)
+    if timeline is None:
+        raise HTTPException(status_code=404, detail=f"Order '{order_id}' not found")
+    return timeline

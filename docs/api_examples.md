@@ -283,7 +283,264 @@ curl -s http://127.0.0.1:8000/policies/policy_001 | python -m json.tool
 
 ---
 
-## 6. Swagger UI（交互式测试）
+## 6. Agent 智能体分析（Phase 2）
+
+### POST /agent/analyze/{order_id} — 分析订单风险
+
+```bash
+# 分析 PO-002（高金额订单 → 建议 escalate_order）
+curl -s -X POST http://127.0.0.1:8000/agent/analyze/PO-002 | python -m json.tool
+```
+
+**Response（Mock Agent）:**
+```json
+{
+    "agent_run_id": "agent_run_a1b2c3d4",
+    "order_id": "PO-002",
+    "risk_level": "high",
+    "suggested_action": "escalate_order",
+    "reason": "订单金额 150000 元，超过 100000 元升级审批阈值，需要升级审批。",
+    "evidence_ids": "[\"risk_002\", \"policy_001\", \"policy_002\", \"policy_003\", \"policy_004\"]",
+    "confidence": 0.95,
+    "status": "success",
+    "error_message": null,
+    "order_status_unchanged": true,
+    "model": "mock"
+}
+```
+
+> **关键约束**: `order_status_unchanged: true` 确认 Agent 没有修改 PurchaseOrder.status。
+
+### GET /agent/runs — 查询分析历史
+
+```bash
+# 查询 PO-002 的所有分析记录
+curl -s "http://127.0.0.1:8000/agent/runs?order_id=PO-002" | python -m json.tool
+```
+
+### GET /agent/runs/{run_id} — 查询单条分析
+
+```bash
+curl -s http://127.0.0.1:8000/agent/runs/agent_run_a1b2c3d4 | python -m json.tool
+```
+
+---
+
+## 7. Action 执行（Phase 2）
+
+### POST /actions/execute — 执行状态变更
+
+**这是 PurchaseOrder.status 的唯一变更入口。**
+
+```bash
+# 执行 escalate_order
+curl -s -X POST http://127.0.0.1:8000/actions/execute \
+  -H "Content-Type: application/json" \
+  -d '{
+    "order_id": "PO-002",
+    "action_type": "escalate_order",
+    "actor": "user:risk_manager",
+    "reason": "订单金额超 100000 元升级阈值，Agent 建议升级审批。",
+    "evidence_ids": ["risk_002", "policy_001"]
+  }' | python -m json.tool
+```
+
+**Response（成功）:**
+```json
+{
+    "success": true,
+    "action_type": "escalate_order",
+    "order_id": "PO-002",
+    "before_state": "pending_review",
+    "after_state": "escalated",
+    "audit_log_id": "audit_PO-002_20260615230000000000",
+    "message": "Action 'escalate_order' executed on 'PO-002': pending_review → escalated"
+}
+```
+
+**Response（失败 — 非法状态变更）:**
+```json
+{
+    "detail": "Cannot execute 'approve_order' on order 'PO-005': current status is 'frozen'. Status 'frozen' is terminal — no actions allowed."
+}
+```
+
+### Actor 约束
+
+- `user:*` 前缀 — 人类用户操作（如 `user:risk_manager`）
+- `system:*` 前缀 — 系统自动化操作（如 `system:fraud_detection`）
+- `agent:*` 前缀 — **禁止**（Agent 只能建议，不能执行）
+
+```bash
+# 以下请求会被拒绝（agent 不能执行 Action）
+curl -s -X POST http://127.0.0.1:8000/actions/execute \
+  -H "Content-Type: application/json" \
+  -d '{
+    "order_id": "PO-001",
+    "action_type": "approve_order",
+    "actor": "agent:deepseek",
+    "reason": "Agent trying to change state",
+    "evidence_ids": ["risk_001"]
+  }'
+# → 422: Actor 'agent:deepseek' is forbidden
+```
+
+### 四个 Action 对应关系
+
+| Action | 允许从 | 目标状态 |
+|--------|--------|----------|
+| `approve_order` | `pending_review`, `escalated` | `approved` |
+| `reject_order` | `pending_review`, `escalated` | `rejected` |
+| `escalate_order` | `pending_review` | `escalated` |
+| `freeze_order` | `pending_review`, `escalated`, `approved` | `frozen` |
+
+---
+
+## 8. 审计日志查询（Phase 2）
+
+### GET /audit-logs — 审计日志列表
+
+```bash
+# 全部审计日志
+curl -s http://127.0.0.1:8000/audit-logs | python -m json.tool
+
+# 按订单过滤
+curl -s "http://127.0.0.1:8000/audit-logs?order_id=PO-002" | python -m json.tool
+
+# 只看失败的
+curl -s "http://127.0.0.1:8000/audit-logs?success=false" | python -m json.tool
+
+# 按 action 类型过滤
+curl -s "http://127.0.0.1:8000/audit-logs?action_type=freeze_order" | python -m json.tool
+```
+
+**Response:**
+```json
+[
+    {
+        "id": "audit_PO-002_20260615230000000000",
+        "action_type": "escalate_order",
+        "object_id": "PO-002",
+        "actor": "user:risk_manager",
+        "reason": "订单金额超 100000 元升级阈值...",
+        "evidence_ids": "[\"risk_002\", \"policy_001\"]",
+        "before_state": "{\"status\": \"pending_review\"}",
+        "after_state": "{\"status\": \"escalated\"}",
+        "timestamp": "2026-06-15T23:00:00.000000",
+        "success": true,
+        "error_message": null
+    }
+]
+```
+
+### GET /audit-logs/{id} — 单条审计日志
+
+```bash
+curl -s http://127.0.0.1:8000/audit-logs/audit_PO-002_20260615230000000000 | python -m json.tool
+```
+
+---
+
+## 9. Timeline 时间线查询（Phase 2）
+
+### GET /orders/{order_id}/timeline — 完整审计时间线
+
+返回订单的所有事件（订单创建 → 风险检测 → Agent 分析 → Action 执行），按时间排序。
+
+```bash
+curl -s http://127.0.0.1:8000/orders/PO-002/timeline | python -m json.tool
+```
+
+**Response 结构:**
+```json
+{
+    "order": { "id": "PO-002", "status": "escalated", ... },
+    "supplier": { "id": "supplier_002", "name": "云擎数据中心解决方案", ... },
+    "risk_signals": [ ... ],
+    "related_policies": [ ... ],
+    "agent_runs": [ ... ],
+    "action_audit_logs": [ ... ],
+    "approval_tasks": [ ... ],
+    "timeline": [
+        {
+            "timestamp": "2026-06-15T15:11:04",
+            "event_type": "order_created",
+            "title": "订单创建",
+            "description": "采购订单 PO-002 创建 — 金额 150,000.00 CNY",
+            "ref_id": "PO-002",
+            "details": {
+                "supplier_id": "supplier_002",
+                "amount": 150000.0,
+                "currency": "CNY",
+                "initial_status": "pending_review"
+            }
+        },
+        {
+            "timestamp": "2026-06-15T15:11:04",
+            "event_type": "risk_signal",
+            "title": "风险信号: high_amount",
+            "description": "[high] high_amount: 订单金额 150000 元，超过 100000 元升级审批阈值",
+            "ref_id": "risk_002",
+            "details": {
+                "risk_signal_id": "risk_002",
+                "signal_type": "high_amount",
+                "severity": "high"
+            }
+        },
+        {
+            "timestamp": "2026-06-15T23:49:02",
+            "event_type": "agent_run",
+            "title": "Agent 分析: escalate_order",
+            "description": "Agent 建议 'escalate_order' (风险等级: high, 置信度: 0.95)",
+            "ref_id": "agent_run_a1b2c3d4",
+            "details": {
+                "agent_run_id": "agent_run_a1b2c3d4",
+                "suggested_action": "escalate_order",
+                "risk_level": "high",
+                "confidence": 0.95,
+                "status": "success"
+            }
+        },
+        {
+            "timestamp": "2026-06-15T23:49:02",
+            "event_type": "action_audit_log",
+            "title": "Action 执行: escalate_order",
+            "description": "[成功] escalate_order by user:risk_manager — 订单金额超 100000 元升级阈值...",
+            "ref_id": "audit_PO-002_20260615230000000000",
+            "details": {
+                "audit_log_id": "audit_PO-002_20260615230000000000",
+                "action_type": "escalate_order",
+                "actor": "user:risk_manager",
+                "success": true,
+                "before_state": "{\"status\": \"pending_review\"}",
+                "after_state": "{\"status\": \"escalated\"}"
+            }
+        }
+    ]
+}
+```
+
+### PolicyChunk 追溯逻辑
+
+`related_policies` 中的 PolicyChunk 通过以下方式间接关联到订单：
+
+1. 从 `AgentRun.evidence_ids` 中提取 `policy_xxx` ID
+2. 从 `ActionAuditLog.evidence_ids` 中提取 `policy_xxx` ID
+3. 查询对应的 PolicyChunk 记录返回
+4. 如果没有 policy evidence，返回**全部** PolicyChunk 作为 fallback
+
+### 容错设计
+
+- `evidence_ids` 是数据库中的 JSON 字符串，解析失败时自动跳过，不会让接口崩溃
+- 如果 `AgentRun` / `ActionAuditLog` 为空，timeline 仍然返回：
+  - `order`、`supplier`、`risk_signals`、`related_policies`
+  - 空的 `agent_runs` / `action_audit_logs` 列表
+  - 基础 `timeline_events`（至少包含 `order_created` 和风险信号事件）
+- `order_id` 不存在时返回 404
+
+---
+
+## 10. Swagger UI（交互式测试）
 
 启动服务后，直接访问 http://127.0.0.1:8000/docs 即可通过浏览器交互式调用所有 API，无需手动编写 curl 命令。
 
