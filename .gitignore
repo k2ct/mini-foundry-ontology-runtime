@@ -36,3 +36,6 @@ __pycache__/
 dist/
 build/
 *.egg-info/
+*.zip
+*.tar.gz
+*.7z
