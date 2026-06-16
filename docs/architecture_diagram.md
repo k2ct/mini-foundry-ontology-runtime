@@ -20,8 +20,14 @@ graph TD
     class Client external
 
     DeepSeek["DeepSeek LLM
-    (deepseek-v4-flash)"]
+    (deepseek-v4-flash)
+    External API"]
     class DeepSeek external
+
+    FallbackAnalyzer["Fallback Rule Analyzer
+    (app/agent/mock_llm.py)
+    No API key needed"]
+    class FallbackAnalyzer done
 
     %% ── FastAPI Layer ─────────────────────────────────────────────────
     FastAPI["FastAPI Application
@@ -46,7 +52,8 @@ graph TD
     AgentAnalyzer["LLM Agent Analyzer
     (app/agent/analyzer.py)
     Read orders + risks + policies
-    → Produce AgentRun (suggestion ONLY)"]
+    → Produce AgentRun (suggestion ONLY)
+    Priority: DeepSeek → Fallback"]
     class AgentAnalyzer done
 
     %% ── AgentRun ─────────────────────────────────────────────────────
@@ -90,6 +97,7 @@ graph TD
 
     AgentAnalyzer --> OntologyDB
     AgentAnalyzer --> DeepSeek
+    AgentAnalyzer --> FallbackAnalyzer
     AgentAnalyzer --> AgentRunRecord
     AgentRunRecord --> OntologyDB
 
@@ -130,12 +138,13 @@ Client ──GET──▶ FastAPI ──Query──▶ Ontology DB
 
 ```text
 1. Agent Analyzer 读取订单 + 风险信号 + 政策
-2. 调用 DeepSeek LLM 生成分析建议
-3. 写入 AgentRun（READ-ONLY，不可直接修改订单状态）
-4. Action Runtime 读取 AgentRun 建议
-5. 执行校验器 → 状态机判定
-6. 写入 PurchaseOrder 新状态 + ActionAuditLog（before/after 快照）
-7. Timeline Query 按 order_id 查询完整审计链路
+2. 优先调用 DeepSeek LLM 生成分析建议
+3. 若 DeepSeek 不可用（无 Key / 网络故障 / 超时 / 格式异常）→ 自动降级到 Fallback Rule Analyzer
+4. 写入 AgentRun（READ-ONLY，不可直接修改订单状态）
+5. Action Runtime 读取 AgentRun 建议
+6. 执行校验器 → 状态机判定
+7. 写入 PurchaseOrder 新状态 + ActionAuditLog（before/after 快照）
+8. Timeline Query 按 order_id 查询完整审计链路
 ```
 
 ---

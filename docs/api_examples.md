@@ -300,7 +300,7 @@ curl -s -X POST http://127.0.0.1:8000/agent/analyze/PO-002 | python -m json.tool
     "risk_level": "high",
     "suggested_action": "escalate_order",
     "reason": "订单金额 150000 元，超过 100000 元升级审批阈值，需要升级审批。",
-    "evidence_ids": "[\"risk_002\", \"policy_001\", \"policy_002\", \"policy_003\", \"policy_004\"]",
+    "evidence_ids": ["risk_002", "policy_001", "policy_002", "policy_003", "policy_004"],
     "confidence": 0.95,
     "status": "success",
     "error_message": null,
@@ -310,6 +310,46 @@ curl -s -X POST http://127.0.0.1:8000/agent/analyze/PO-002 | python -m json.tool
 ```
 
 > **关键约束**: `order_status_unchanged: true` 确认 Agent 没有修改 PurchaseOrder.status。
+
+### Response Variations（真实 LLM vs Fallback）
+
+**有 DeepSeek API Key 时（status=success，真实 LLM 调用）:**
+
+```json
+{
+    "agent_run_id": "agent_run_x1y2z3w4",
+    "order_id": "PO-002",
+    "risk_level": "medium",
+    "suggested_action": "escalate_order",
+    "reason": "订单金额为150,000元，超过100,000元阈值，建议升级审批。",
+    "evidence_ids": ["risk_002", "policy_001"],
+    "confidence": 0.85,
+    "status": "success",
+    "error_message": null,
+    "order_status_unchanged": true,
+    "model": "deepseek-v4-flash"
+}
+```
+
+**无 API Key 或 API 不可达时（status=fallback，自动降级到规则分析器）:**
+
+```json
+{
+    "agent_run_id": "agent_run_a1b2c3d4",
+    "order_id": "PO-002",
+    "risk_level": "high",
+    "suggested_action": "escalate_order",
+    "reason": "订单金额 150000 元，超过 100000 元升级审批阈值，需要升级审批。",
+    "evidence_ids": ["risk_002", "policy_001", "policy_002", "policy_003", "policy_004"],
+    "confidence": 0.95,
+    "status": "fallback",
+    "error_message": null,
+    "order_status_unchanged": true,
+    "model": "mock"
+}
+```
+
+> **关键区别：** `status` 字段区分 `"success"`（真实 LLM）和 `"fallback"`（规则降级）；`model` 字段区分 `"deepseek-v4-flash"` 和 `"mock"`。两种情况下 `suggested_action` 均为 `escalate_order`，`order_status_unchanged` 均为 `true`——Agent 的行为边界在两种模式下完全一致。
 
 ### GET /agent/runs — 查询分析历史
 
@@ -423,7 +463,7 @@ curl -s "http://127.0.0.1:8000/audit-logs?action_type=freeze_order" | python -m 
         "object_id": "PO-002",
         "actor": "user:risk_manager",
         "reason": "订单金额超 100000 元升级阈值...",
-        "evidence_ids": "[\"risk_002\", \"policy_001\"]",
+        "evidence_ids": ["risk_002", "policy_001"],
         "before_state": "{\"status\": \"pending_review\"}",
         "after_state": "{\"status\": \"escalated\"}",
         "timestamp": "2026-06-15T23:00:00.000000",
@@ -531,7 +571,8 @@ curl -s http://127.0.0.1:8000/orders/PO-002/timeline | python -m json.tool
 
 ### 容错设计
 
-- `evidence_ids` 是数据库中的 JSON 字符串，解析失败时自动跳过，不会让接口崩溃
+- `evidence_ids` 在数据库中存储为 JSON 字符串，但在 **API 响应中已自动解析为 `list[str]`**（数组格式）
+- 数据库中的 JSON 字符串解析失败时自动跳过，不会让接口崩溃
 - 如果 `AgentRun` / `ActionAuditLog` 为空，timeline 仍然返回：
   - `order`、`supplier`、`risk_signals`、`related_policies`
   - 空的 `agent_runs` / `action_audit_logs` 列表

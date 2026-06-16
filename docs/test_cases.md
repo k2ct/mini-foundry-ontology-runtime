@@ -391,4 +391,19 @@ pytest tests/ -v --tb=short
 | `test_agent_cannot_modify_order.py` | 否（使用 MockLLMAgent） |
 | `test_audit_log.py` | 否（测试 AuditLogger） |
 
-所有测试均**不依赖真实 DeepSeek API**，可在无网络环境中运行。
+所有 `pytest` 测试均**不依赖真实 DeepSeek API**，可在无网络环境中运行。
+
+### 可选真实 LLM 连通性测试
+
+`scripts/test_deepseek_llm.py` 是**可选**的真实 DeepSeek LLM 连通性测试，**不纳入 pytest**：
+
+```powershell
+python scripts\test_deepseek_llm.py
+```
+
+该测试需要本地 `.env` 中配置 `DEEPSEEK_API_KEY`，验证：
+- 最小化 LLM 调用（Test 1）
+- 完整 analyze_order 流程（Test 2）
+- Fallback 机制（Test 3）
+
+> `verify_phase2.py`、`pytest`、`run_demo.py` 均不依赖真实 API Key，保证面试官即使没有 API Key 也能完整验收系统主链路。
