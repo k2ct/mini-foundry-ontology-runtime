@@ -9,8 +9,9 @@ of the deprecated ``class Config: orm_mode = True``).
 """
 
 from datetime import datetime
+import json
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -128,12 +129,32 @@ class AgentRunRead(BaseModel):
     risk_level: str | None = None
     suggested_action: str | None = None
     reason: str | None = None
-    evidence_ids: str | None = None
+    evidence_ids: list[str] = Field(
+        default_factory=list,
+        description="Evidence IDs as a list. DB stores as JSON string; API returns parsed list.",
+    )
     confidence: float | None = None
     raw_output: str | None = None
     status: str
     error_message: str | None = None
     created_at: datetime
+
+    @field_validator("evidence_ids", mode="before")
+    @classmethod
+    def parse_evidence_ids(cls, v: object) -> list[str]:
+        """Parse evidence_ids from DB JSON string to list."""
+        if v is None:
+            return []
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            try:
+                parsed = json.loads(v)
+                if isinstance(parsed, list):
+                    return parsed
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return []
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -152,9 +173,29 @@ class ActionAuditLogRead(BaseModel):
     object_id: str          # ★
     actor: str              # ★
     reason: str | None = None  # ★
-    evidence_ids: str | None = None  # ★
+    evidence_ids: list[str] = Field(
+        default_factory=list,
+        description="Evidence IDs as a list. DB stores as JSON string; API returns parsed list.",
+    )
     before_state: str | None = None  # ★
     after_state: str | None = None   # ★
     timestamp: datetime     # ★
     success: bool           # ★
     error_message: str | None = None  # ★
+
+    @field_validator("evidence_ids", mode="before")
+    @classmethod
+    def parse_evidence_ids(cls, v: object) -> list[str]:
+        """Parse evidence_ids from DB JSON string to list."""
+        if v is None:
+            return []
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            try:
+                parsed = json.loads(v)
+                if isinstance(parsed, list):
+                    return parsed
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return []

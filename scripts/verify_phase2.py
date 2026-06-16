@@ -235,15 +235,17 @@ def step_agent_analysis(client, db_session) -> dict:
           f"Got: {data.get('status')}, error: {data.get('error_message')}")
 
     # Evidence should contain risk_002 or policy_001
-    evidence = data.get("evidence_ids", "[]")
-    try:
-        evidence_list = json.loads(evidence)
-    except Exception:
-        evidence_list = []
-    has_evidence = "risk_002" in evidence or "policy_001" in evidence or any(
-        "risk_002" in str(e) for e in evidence_list
-    )
-    check("Evidence contains risk_002 or policy_001", has_evidence or len(evidence_list) > 0,
+    evidence = data.get("evidence_ids", [])
+    # evidence_ids is now a list[str] in API responses
+    if isinstance(evidence, str):
+        try:
+            evidence = json.loads(evidence)
+        except Exception:
+            evidence = []
+    if not isinstance(evidence, list):
+        evidence = []
+    has_evidence = any("risk_002" in str(e) or "policy_001" in str(e) for e in evidence)
+    check("Evidence contains risk_002 or policy_001", has_evidence or len(evidence) > 0,
           f"Got evidence: {evidence}")
 
     # Verify order status unchanged

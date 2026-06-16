@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 
 from app.agent.analyzer import analyze_order
 from app.agent.deepseek_llm import DeepSeekLLMClient
-from app.config import DEEPSEEK_API_KEY
+from app.config import DEEPSEEK_API_KEY, DEEPSEEK_MODEL
 from app.deps import get_db
 
 logger = logging.getLogger(__name__)
@@ -42,7 +42,10 @@ class AgentAnalyzeResponse(BaseModel):
     risk_level: str | None = None
     suggested_action: str | None = None
     reason: str | None = None
-    evidence_ids: str | None = None
+    evidence_ids: list[str] = Field(
+        default_factory=list,
+        description="Evidence IDs as a list (risk_xxx / policy_xxx). DB stores as JSON string; API returns list.",
+    )
     confidence: float | None = None
     status: str
     error_message: str | None = None
@@ -52,7 +55,7 @@ class AgentAnalyzeResponse(BaseModel):
     )
     model: str = Field(
         default="unknown",
-        description="Which model produced this analysis (deepseek, mock/fallback)",
+        description="Which model actually produced this analysis (deepseek or mock). Derived from AgentRun.status.",
     )
 
 
@@ -86,10 +89,8 @@ def run_analysis(
     # 1. Create LLM client (None → fallback if no API key)
     if DEEPSEEK_API_KEY:
         llm_client = DeepSeekLLMClient()
-        model_name = "deepseek"
     else:
         llm_client = None  # analyze_order() will use fallback
-        model_name = "mock"
 
     # 2. Run the full analysis pipeline (context → LLM → parse → validate → save)
     try:
@@ -106,13 +107,18 @@ def run_analysis(
             detail=f"Agent analysis failed: {exc}",
         )
 
-    # 3. Verify order status was NOT changed (hard constraint)
+    # 3. Derive model from actual AgentRun status (not from API key presence)
+    #    - status "success" → real DeepSeek LLM produced the result
+    #    - status "fallback" → fallback_analysis() was used (API failure or no key)
+    model_name = DEEPSEEK_MODEL if agent_run.status == "success" else "mock"
+
+    # 4. Verify order status was NOT changed (hard constraint)
     from app.ontology.models import PurchaseOrder
     order = db.get(PurchaseOrder, order_id)
     order_status = order.status if order else "unknown"
 
     # Parse evidence_ids back to list for the response
-    evidence_list = []
+    evidence_list: list[str] = []
     if agent_run.evidence_ids:
         try:
             evidence_list = json.loads(agent_run.evidence_ids)
@@ -125,7 +131,7 @@ def run_analysis(
         risk_level=agent_run.risk_level,
         suggested_action=agent_run.suggested_action,
         reason=agent_run.reason,
-        evidence_ids=json.dumps(evidence_list, ensure_ascii=False),
+        evidence_ids=evidence_list,
         confidence=agent_run.confidence,
         status=agent_run.status,
         error_message=agent_run.error_message,
